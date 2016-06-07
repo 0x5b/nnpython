@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn import datasets, linear_model
@@ -14,7 +16,7 @@ class Config:
 
 def generate_data():
 	np.random.seed(0)
-	X, y = datasets.make_moons(300, noise=0.20)
+	X, y = datasets.make_moons(50, noise=0.20)
 	return X, y
 
 def visualize_linear(X, y, model):
@@ -43,26 +45,30 @@ def plot_decision_boundary(pred_func, X, y, i):
 def calculate_loss(model, X, y):
 	num_examples = len(X)
 	W1, b1, W2, b2 = model["W1"], model["b1"], model["W2"], model["b2"]
-	z1 = X.dot(W1) + b1
-	a1 = np.tanh(z1)
-	z2 = a1.dot(W2) + b2
+	y_hat, _, _, _ = forward_propagation(X, W1, b1, W2, b2)
 
-	exp_scores = np.exp(z2)
-	probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-
-	correct_logprobs = -np.log(probs[range(num_examples), y])
+	correct_logprobs = -np.log(y_hat[range(num_examples), y])
 	data_loss = np.sum(correct_logprobs)
 	data_loss += Config.reg_lambda / 2 * (np.sum(np.square(W1)) + np.sum(np.square(W2)))
 	return 1. / num_examples * data_loss
 
 def predict(model, X):
 	W1, b1, W2, b2 = model["W1"], model["b1"], model["W2"], model["b2"]
+	y_hat, _, _, _ = forward_propagation(X, W1, b1, W2, b2)
+	return np.argmax(y_hat, axis=1)
+
+def forward_propagation(X, W1, b1, W2, b2):
+	# Forward propagation
+	# z1 - вектор-результат взвешенной суммы входного вектора
+	# a1 - вектор результат активационной функции tanh
+	# между слоем input и hidden
 	z1 = X.dot(W1) + b1
 	a1 = np.tanh(z1)
+	# то же самое между hidden и output слоем
 	z2 = a1.dot(W2) + b2
 	exp_scores = np.exp(z2)
-	probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-	return np.argmax(probs, axis=1)
+	y_hat = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+	return y_hat, z1, a1, z2
 
 def multilayer_perceptron(X, y, nn_hdim, num_passes=4000, print_loss=False):
 	# Initialize the parameters to random values. We need to learn these.
@@ -87,19 +93,9 @@ def multilayer_perceptron(X, y, nn_hdim, num_passes=4000, print_loss=False):
 	# Gradient descent. For each batch...
 	for i in range(0, num_passes):
 
-	# Forward propagation
-		# z1 - вектор-результат взвешенной суммы входного вектора
-		# a1 - вектор результат активационной функции tanh
-		# между слоем input и hidden
-		z1 = X.dot(W1) + b1
-		a1 = np.tanh(z1)
-		z2 = a1.dot(W2) + b2
-		# то же самое между hidden и output слоем
-		exp_scores = np.exp(z2)
-		probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-
+		y_hat, _, a1, _ = forward_propagation(X, W1, b1, W2, b2)
 		# Backpropagation
-		delta3 = probs
+		delta3 = y_hat
 		delta3[range(num_examples), y] -= 1
 		dW2 = (a1.T).dot(delta3)
 		db2 = np.sum(delta3, axis=0, keepdims=True)
@@ -122,9 +118,10 @@ def multilayer_perceptron(X, y, nn_hdim, num_passes=4000, print_loss=False):
 
 	# Optionally print the loss.
 	# This is expensive because it uses the whole dataset, so we don't want to do it too often.
+		if i <= 750 and i % 50 == 0:
+			visualize(X, y, model, i)
 		if print_loss and i % 250 == 0:
 			print("Loss after iteration %i: %f" % (i, calculate_loss(model, X, y)))
-			visualize(X, y, model, i)
 
 	return model
 
