@@ -7,6 +7,8 @@ import numpy as np
 from sklearn import datasets, linear_model
 
 path = "./result/"
+pass_count = 20000
+dataset_size = 100
 
 class Config:
 	nn_input_dim = 2
@@ -16,10 +18,11 @@ class Config:
 
 def generate_data():
 	np.random.seed(0)
-	X, y = datasets.make_moons(150, noise=0.20)
+	X, y = datasets.make_moons(dataset_size, noise=0.20)
 	return X, y
 
-def visualize_linear(X, y, model):
+def visualize_linear(X, y):
+	# Визуализация предсказания с помощью библиотечной функции
 	clf = linear_model.LogisticRegressionCV()
 	clf.fit(X, y)
 	plot_decision_boundary(lambda x: clf.predict(x), X, y, 0)
@@ -30,11 +33,19 @@ def visualize(X, y, model, i):
 	plt.title("Logistic regression")
 
 def plot_decision_boundary(pred_func, X, y, i):
+	# Ищем макс и мин значения х и у исходного набора точек
 	x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
 	y_min, y_max = X[:, 1].min() - .5, X[:, 1].max() + .5
 	h = 0.01
+	# создаем сетку точек с расстоянием h между ними
+	# D - массив всех возможных точек от левого
+	# нижнего угла до правого верхнего сетки координат, между точками h
 	xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-	Z = pred_func(np.c_[xx.ravel(), yy.ravel()])
+	D = np.c_[xx.ravel(), yy.ravel()]
+	# Z - массив точек [0, 1, 1, 0, 0, ...]
+	# которые вернула pred_func
+	# Zi - предсказание принадлежности Di к одному из классов
+	Z = pred_func(D)
 	Z = Z.reshape(xx.shape)
 
 	plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
@@ -55,24 +66,27 @@ def calculate_loss(X, y, model):
 
 def predict(X, model):
 	y_hat, _, _, _ = forward_propogation(X, model)
+	# возвращает массив с результатами предсказаний для всех точек на
+	# координатной плоскости [0, 1, 1, 0, 0, ..]
 	return np.argmax(y_hat, axis=1)
 
 def forward_propogation(X, model):
-	# Forward propagation
+	# Проход по нейронной сети вперед
 	W1, b1, W2, b2 = model["W1"], model["b1"], model["W2"], model["b2"]
 	# z1 - вектор-результат взвешенной суммы входного вектора
-	# a1 - вектор результат активационной функции tanh
+	# a1 - вектор-результат активационной функции tanh
 	# между слоем input и hidden
 	z1 = X.dot(W1) + b1
 	a1 = np.tanh(z1)
 	# то же самое между hidden и output слоем
+	# но активацивационная функция - softmax
 	z2 = a1.dot(W2) + b2
 	exp_scores = np.exp(z2)
 	y_hat = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
 	return y_hat, z1, a1, z2
 
 def backpropogation(X, y, y_hat, a1, model):
-	# Backpropagation
+	# Обратное распространение ошибки
 	num_examples = len(X)
 	delta3 = y_hat
 	delta3[range(num_examples), y] -= 1
@@ -82,11 +96,9 @@ def backpropogation(X, y, y_hat, a1, model):
 	dW1 = np.dot(X.T, delta2)
 	db1 = np.sum(delta2, axis=0)
 
-	# Add regularization terms (b1 and b2 don't have regularization terms)
 	dW2 += Config.reg_lambda * model["W2"]
 	dW1 += Config.reg_lambda * model["W1"]
 
-	# Gradient descent parameter update
 	model["W1"] += -Config.epsilon * dW1
 	model["b1"] += -Config.epsilon * db1
 	model["W2"] += -Config.epsilon * dW2
@@ -94,8 +106,7 @@ def backpropogation(X, y, y_hat, a1, model):
 
 	return model
 
-def multilayer_perceptron(X, y, nn_hdim, num_passes=20000, print_loss=False):
-	# Initialize the parameters to random values. We need to learn these.
+def multilayer_perceptron(X, y, nn_hdim, num_passes=pass_count, print_loss=False):
 	#	W1 - матрица весов между input и hidden слоем
 	#		при создании заполненяется рандомными значениями
 	#		рaзмерность (2х3) тк в input слое 2 нейрона, в hidden - 3
@@ -109,25 +120,24 @@ def multilayer_perceptron(X, y, nn_hdim, num_passes=20000, print_loss=False):
 	W2 = np.random.randn(nn_hdim, Config.nn_output_dim) / np.sqrt(nn_hdim)
 	b2 = np.zeros((1, Config.nn_output_dim))
 
-	# This is what we return at the end
 	model = {'W1': W1, 'b1': b1, 'W2': W2, 'b2': b2}
 
-	visualize_linear(X, y, model)
+	# График предсказания встроенной функции
+	visualize_linear(X, y)
+	# График предсказания перцептрона
 	visualize(X, y, model, 1)
 
-	# Gradient descent. For each batch...
+	# Процесс обучения
 	for i in range(0, num_passes):
 
 		y_hat, _, a1, _ = forward_propogation(X, model)
 
-		# Assign new parameters to the model
-		model =  backpropogation(X, y, y_hat, a1, model)
+		model = backpropogation(X, y, y_hat, a1, model)
 
-		# Optionally print the loss.
-		# This is expensive because it uses the whole dataset, so we don't want to do it too often.
 		if i <= 750 and i % 50 == 0:
+			print("Loss after iteration %i: %f" % (i, calculate_loss(X, y, model)))
 			visualize(X, y, model, i)
-		if print_loss and i % 250 == 0:
+		if print_loss and i % 1000 == 0:
 			print("Loss after iteration %i: %f" % (i, calculate_loss(X, y, model)))
 
 	return model
@@ -136,9 +146,9 @@ def main():
 	X, y = generate_data()
 	#X - массив точек типа np.array - array([[x1,y1],[x2,y2],...])
 	#y - массив значений, принадлежность к классу - [1, 0, 0, 1, 1, ..]
-	hidden_neuron_quantity = 20
+	hidden_neuron_quantity = 3
 	model = multilayer_perceptron(X, y, hidden_neuron_quantity, print_loss=True)
-	visualize(X, y, model, 20000)
+	visualize(X, y, model, pass_count)
 
 if __name__ == "__main__":
 	main()
