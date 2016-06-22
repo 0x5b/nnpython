@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import time
+from pprint import pprint
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +13,12 @@ path = "./result/"
 dataset_size = 200
 loss_delta = 0.0000001
 
+class Profiler(object):
+	def __enter__(self):
+		self._startTime = time.time()
+
+	def __exit__(self, type, value, traceback):
+		print "\tElapsed time: {:.3f} sec".format(time.time() - self._startTime)
 
 class Config:
 	nn_input_dim = 2
@@ -20,7 +28,7 @@ class Config:
 
 
 def generate_data():
-	np.random.seed(0)
+#	np.random.seed(0)
 	X, y = datasets.make_moons(dataset_size, noise=0.20)
 	return X, y
 
@@ -56,6 +64,7 @@ def plot_decision_boundary(pred_func, X, y, i):
 
 	plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
 	plt.scatter(X[:,0], X[:,1], s=40, c=y, cmap=plt.cm.Spectral)
+#	plt.scatter(X[:,0], X[:,1], s=40, c=y)
 	plt.savefig(path + str(i) + ".png", format='png')
 
 
@@ -63,24 +72,24 @@ def calculate_loss(X, y, model):
 	num_examples = len(X)
 	W1, W2 = model["W1"], model["W2"]
 
-	y_hat, _, _, _ = forward_propogation(X, model)
+	y_hat, _, _, _ = forward_propagation(X, model)
 
 	correct_logprobs = -np.log(y_hat[range(num_examples), y])
 	data_loss = np.sum(correct_logprobs)
-	# L2 регулязация
+	#регулязация
 	data_loss += Config.reg_lambda / 2 * (np.sum(np.square(W1)) + np.sum(np.square(W2)))
 
 	return 1. / num_examples * data_loss
 
 
 def predict(X, model):
-	output, _, _, _ = forward_propogation(X, model)
+	output, _, _, _ = forward_propagation(X, model)
 	# возвращает массив с результатами предсказаний для всех точек на
 	# координатной плоскости [0, 1, 1, 0, 0, ..]
 	return np.argmax(output, axis=1)
 
 
-def forward_propogation(X, model):
+def forward_propagation(X, model):
 	# Проход по нейронной сети вперед
 	W1, b1, W2, b2 = model["W1"], model["b1"], model["W2"], model["b2"]
 	# z1 - вектор-результат взвешенной суммы входного вектора
@@ -118,7 +127,7 @@ def train_network(X, y, model, print_loss=False):
 	i = 0
 
 	while True:
-		y_hat, _, a1, _ = forward_propogation(X, model)
+		y_hat, _, a1, _ = forward_propagation(X, model)
 
 		dW1, db1, dW2, db2 = backpropogation(X, y, y_hat, a1, model)
 
@@ -132,7 +141,7 @@ def train_network(X, y, model, print_loss=False):
 
 		current_loss = calculate_loss(X, y, model)
 		if i % 50 == 0:
-			visualize(X, y, model, i)
+#			visualize(X, y, model, i)
 			print("\tLoss after iteration %i: %f" % (i, current_loss))
 
 		if abs(current_loss - last_loss) > loss_delta:
@@ -167,21 +176,29 @@ def multilayer_perceptron(X, y, nn_hdim):
 
 def main():
 	X, y = generate_data()
-	#X - массив точек типа np.array - array([[x1,y1],[x2,y2],...])
-	#y - массив значений, принадлежность к классу - [1, 0, 0, 1, 1, ..]
-	visualize_linear(X, y)
-	hidden_neuron_quantity = 3
-	model = multilayer_perceptron(X, y, hidden_neuron_quantity)
-	visualize(X, y, model, 1)
-	model = train_network(X, y, model, print_loss=True)
-	visualize(X, y, model, 1000)
+	with Profiler() as p:
+		#X - массив точек типа np.array - array([[x1,y1],[x2,y2],...])
+		#y - массив значений, принадлежность к классу - [1, 0, 0, 1, 1, ..]
+	#	visualize_linear(X, y)
+		hidden_neuron_quantity = 3
+		model = multilayer_perceptron(X, y, hidden_neuron_quantity)
+		print "\n\tPerceptron before training:\n\t"
+		pprint(model)
+
+		visualize(X, y, model, "begin_py")
+		model = train_network(X, y, model, print_loss=True)
+		print "\n\tPerceptron after training:\n\t"
+		pprint(model)
+
 #======================================================================
-	model = {"W1":[[0.502703638026838,-0.07940177287485006,0.0676643617632425],[0.6422333385141343,0.49848412848487755,0.7287361615899521]],
-			"b1":[0.002238575156583027,-0.0056952413017793855,-4.501436229897266e-4],
-			"W2":[[0.803811322336427,0.8482215110448333],[0.7845396899360184,0.2789430765709011],[0.8748031603843943,0.4404382751438146]],
-			"b2":[0.00607508015762882,-0.006075080157628832]}
+	model2 = {
+		"W1": [[-3.363171846284268,3.9442164237878488,2.9922150117631654],[0.7930534650839552,-0.7758100494565097,2.5574413557182742]],
+		"b1": [-1.2451114742261244,-4.670694767699797,-2.244981504083405],
+		"W2": [[3.5987838698415566,-2.0161703693843216],[-4.030738233948683,5.10436937137815],[4.598538159596516,-4.246981385708192]],
+		"b2":[-0.7348899787424444,0.734889978742444]}
 #======================================================================
-	visualize(X, y, model, "erlang")
+	visualize(X, y, model, "python")
+#	visualize(X, y, model2, "erlang")
 
 
 if __name__ == "__main__":
