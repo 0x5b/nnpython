@@ -3,22 +3,27 @@
 
 import sys
 import time
+from copy import deepcopy
 from pprint import pprint
 
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn import datasets, linear_model
 
+
 path = "./result/"
 dataset_size = 200
 loss_delta = 0.0000001
 
 class Profiler(object):
+	def __init__(self, s):
+		self.st = s
+
 	def __enter__(self):
 		self._startTime = time.time()
 
 	def __exit__(self, type, value, traceback):
-		print "\tElapsed time: {:.3f} sec".format(time.time() - self._startTime)
+		print self.st + "{:.3f} sec".format(time.time() - self._startTime)
 
 class Config:
 	nn_input_dim = 2
@@ -28,7 +33,7 @@ class Config:
 
 
 def generate_data():
-#	np.random.seed(0)
+	np.random.seed(0)
 	X, y = datasets.make_moons(dataset_size, noise=0.20)
 	return X, y
 
@@ -125,6 +130,7 @@ def train_network(X, y, model, print_loss=False):
 	current_loss = 0
 	last_loss = 0
 	i = 0
+	print
 
 	while True:
 		y_hat, _, a1, _ = forward_propagation(X, model)
@@ -141,7 +147,7 @@ def train_network(X, y, model, print_loss=False):
 
 		current_loss = calculate_loss(X, y, model)
 		if i % 50 == 0:
-#			visualize(X, y, model, i)
+			visualize(X, y, model, i)
 			print("\tLoss after iteration %i: %f" % (i, current_loss))
 
 		if abs(current_loss - last_loss) > loss_delta:
@@ -173,22 +179,32 @@ def multilayer_perceptron(X, y, nn_hdim):
 
 	return model
 
+def format_print(model):
+	print "\tW1: "
+	for i in model["W1"]:
+		print "\t   ", i
+
+	print "\tb1:\n\t   ", model["b1"]
+
+	print "\tW2: "
+	for i in model["W2"]:
+		print "\t   ", i
+
+	print "\tb2:\n\t   ", model["b2"]
 
 def main():
 	X, y = generate_data()
-	with Profiler() as p:
+	hidden_neuron_quantity = 3
+	model = multilayer_perceptron(X, y, hidden_neuron_quantity)
+	n_model = deepcopy(model)
+	visualize(X, y, model, "begin_py")
+
+	with Profiler("\n\tTraining time: ") as p:
 		#X - массив точек типа np.array - array([[x1,y1],[x2,y2],...])
 		#y - массив значений, принадлежность к классу - [1, 0, 0, 1, 1, ..]
-	#	visualize_linear(X, y)
-		hidden_neuron_quantity = 3
-		model = multilayer_perceptron(X, y, hidden_neuron_quantity)
-		print "\n\tPerceptron before training:\n\t"
-		pprint(model)
 
-		visualize(X, y, model, "begin_py")
-		model = train_network(X, y, model, print_loss=True)
-		print "\n\tPerceptron after training:\n\t"
-		pprint(model)
+		model2 = train_network(X, y, model, print_loss=True)
+
 
 #======================================================================
 	model2 = {
@@ -196,9 +212,18 @@ def main():
 		"b1": [-1.2451114742261244,-4.670694767699797,-2.244981504083405],
 		"W2": [[3.5987838698415566,-2.0161703693843216],[-4.030738233948683,5.10436937137815],[4.598538159596516,-4.246981385708192]],
 		"b2":[-0.7348899787424444,0.734889978742444]}
-#======================================================================
-	visualize(X, y, model, "python")
 #	visualize(X, y, model2, "erlang")
+#======================================================================
+
+	print "\n\tPerceptron before training:\n\t"
+	format_print(n_model)
+
+	print "\n\tPerceptron after training:\n\t"
+	format_print(model2)
+
+	with Profiler("\n\tWorking on test set: ") as p:
+		visualize(X, y, model2, "python")
+	print
 
 
 if __name__ == "__main__":
