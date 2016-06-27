@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn import datasets, linear_model
 
+import data
 
-path = "./result/"
+path = "./test/"
 dataset_size = 200
 loss_delta = 0.0000001
 
@@ -67,10 +68,12 @@ def plot_decision_boundary(pred_func, X, y, i):
 	Z = pred_func(D)
 	Z = Z.reshape(xx.shape)
 
-	plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
-	plt.scatter(X[:,0], X[:,1], s=40, c=y, cmap=plt.cm.Spectral)
+#	plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
+#	plt.scatter(X[:,0], X[:,1], s=40, c=y, cmap=plt.cm.Spectral)
 #	plt.scatter(X[:,0], X[:,1], s=40, c=y)
-	plt.savefig(path + str(i) + ".png", format='png')
+	plt.contourf(xx, yy, Z, cmap=plt.cm.seismic)
+	plt.scatter(X[:,0], X[:,1], s=40, c=y, cmap=plt.cm.seismic)
+	plt.savefig(path + "test_set1" + ".png", format='png')
 
 
 def calculate_loss(X, y, model):
@@ -133,7 +136,8 @@ def train_network(X, y, model, print_loss=False):
 	print
 
 	while True:
-		y_hat, _, a1, _ = forward_propagation(X, model)
+#		y_hat, _, a1, _ = forward_propagation(X, model)
+		y_hat, z1, a1, z2 = forward_propagation(X, model)
 
 		dW1, db1, dW2, db2 = backpropogation(X, y, y_hat, a1, model)
 
@@ -147,7 +151,7 @@ def train_network(X, y, model, print_loss=False):
 
 		current_loss = calculate_loss(X, y, model)
 		if i % 50 == 0:
-			visualize(X, y, model, i)
+#			visualize(X, y, model, i)
 			print("\tLoss after iteration %i: %f" % (i, current_loss))
 
 		if abs(current_loss - last_loss) > loss_delta:
@@ -156,6 +160,9 @@ def train_network(X, y, model, print_loss=False):
 			break
 
 		i = i + 1
+
+	a = predict(X, model)
+	print list(a)
 
 	print("\tMinimal loss calculated on %i iteration: loss = %f" % (i, current_loss))
 	return model
@@ -192,8 +199,19 @@ def format_print(model):
 
 	print "\tb2:\n\t   ", model["b2"]
 
+#======================================================================
+model_erl = {
+		"W1": np.array([[-3.363171846284268,3.9442164237878488,2.9922150117631654],[0.7930534650839552,-0.7758100494565097,2.5574413557182742]]),
+		"b1": np.array([[-1.2451114742261244,-4.670694767699797,-2.244981504083405]]),
+		"W2": np.array([[3.5987838698415566,-2.0161703693843216],[-4.030738233948683,5.10436937137815],[4.598538159596516,-4.246981385708192]]),
+		"b2": np.array([[-0.7348899787424444,0.734889978742444]])}
+#	visualize(X, y, model2, "erlang")
+#======================================================================
+
 def main():
 	X, y = generate_data()
+	visualize(X, y, model_erl, "erlang")
+
 	hidden_neuron_quantity = 3
 	model = multilayer_perceptron(X, y, hidden_neuron_quantity)
 	n_model = deepcopy(model)
@@ -204,16 +222,6 @@ def main():
 		#y - массив значений, принадлежность к классу - [1, 0, 0, 1, 1, ..]
 
 		model2 = train_network(X, y, model, print_loss=True)
-
-
-#======================================================================
-	model2 = {
-		"W1": [[-3.363171846284268,3.9442164237878488,2.9922150117631654],[0.7930534650839552,-0.7758100494565097,2.5574413557182742]],
-		"b1": [-1.2451114742261244,-4.670694767699797,-2.244981504083405],
-		"W2": [[3.5987838698415566,-2.0161703693843216],[-4.030738233948683,5.10436937137815],[4.598538159596516,-4.246981385708192]],
-		"b2":[-0.7348899787424444,0.734889978742444]}
-#	visualize(X, y, model2, "erlang")
-#======================================================================
 
 	print "\n\tPerceptron before training:\n\t"
 	format_print(n_model)
